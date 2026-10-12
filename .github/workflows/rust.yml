@@ -1,0 +1,77 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "master" ]
+  # Any target branch, not just master. A stacked PR against a feature branch
+  # reported zero checks and nobody noticed until a reviewer pointed at it.
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+# What runs here is deliberately small: build, test, lint, publish. Anything
+# expensive - Miri, the feature matrix, the benchmarks - lives in `manual.yml`
+# behind `workflow_dispatch`, because it belongs to whoever is investigating
+# something, not to every push.
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubicloud-standard-2
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          add-job-id-key: "false"
+      # Not `--all-targets`: that pulls in the bench targets, and a benchmark
+      # has no business running on a shared runner. `cargo test` on its own
+      # covers lib, integration tests and doctests, and skips benches.
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+      # The crate is `no_std` with no alloc; prove it on a bare-metal target.
+      - name: Build for a no_std target
+        run: |
+          rustup target add aarch64-unknown-none
+          cargo build --lib --target aarch64-unknown-none
+
+  lint:
+    name: Format and clippy
+    runs-on: ubicloud-standard-2
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          add-job-id-key: "false"
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy (deny warnings)
+        run: cargo clippy --lib --bins --tests -- -D warnings
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [build, lint]
+    runs-on: ubicloud-standard-2
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish when master carries a new version
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then echo "CARGO_REGISTRY_TOKEN not set; skipping publish"; exit 0; fi
+          v=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          if curl -fsSL "https://index.crates.io/le/ga/legacy-bullshit" | sed -n 's/.*"vers":"\([^"]*\)".*/\1/p' | grep -qx "$v"; then
+            echo "legacy-bullshit $v is already on crates.io; nothing to publish"
+            exit 0
+          fi
+          cargo publish
