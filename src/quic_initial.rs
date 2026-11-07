@@ -37,6 +37,18 @@ pub const SAMPLE_LEN: usize = 16;
 /// the longest packet number.
 pub const MASK_LEN: usize = 5;
 
+/// Sealing failed. Discard the payload buffer and do not send the packet.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SealError;
+
+impl fmt::Display for SealError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("QUIC Initial packet could not be sealed")
+    }
+}
+
+impl core::error::Error for SealError {}
+
 /// The packet failed authentication. The payload buffer is left in an
 /// unspecified state and must be discarded.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -67,22 +79,22 @@ impl PacketKey {
 
     /// Encrypt `payload` in place with the unprotected `header` as associated
     /// data, and return the tag that follows it on the wire.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SealError`] if AES-GCM fails to seal the packet. Discard the
+    /// payload buffer on error.
     pub fn seal_in_place(
         &self,
         packet_number: u64,
         header: &[u8],
         payload: &mut [u8],
-    ) -> [u8; TAG_LEN] {
+    ) -> Result<[u8; TAG_LEN], SealError> {
         let nonce = self.nonce(packet_number);
-        // Only fails for payloads beyond the GCM limit of 2^36 bytes, far
-        // past any UDP datagram; return a tag that can never verify then.
-        match self
-            .cipher
+        self.cipher
             .encrypt_inout_detached(&nonce, header, payload.into())
-        {
-            Ok(tag) => tag.into(),
-            Err(_) => [0; TAG_LEN],
-        }
+            .map(Into::into)
+            .map_err(|_| SealError)
     }
 
     /// Verify `tag` and decrypt `payload` in place, with the unprotected

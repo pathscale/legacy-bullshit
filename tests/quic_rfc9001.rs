@@ -1,7 +1,7 @@
 //! RFC 9001 Appendix A: Initial keys, the client and server Initial packets,
 //! and the Retry integrity tag (also AES-128-GCM, fixed key).
 use hkdf::Hkdf;
-use legacy_bullshit::quic_initial::{HeaderKey, PacketKey};
+use legacy_bullshit::quic_initial::{HeaderKey, PacketKey, TAG_LEN};
 use sha2::Sha256;
 
 const SALT_V1: &str = "38762cf7f55934b34d179ae6a4c80cadccbb7f0a";
@@ -77,7 +77,7 @@ fn server() -> Keys {
 /// Protect one long-header packet as RFC 9001 sections 5.3 and 5.4 describe.
 fn protect(keys: &Keys, header: &[u8], pn: u64, pn_len: usize, payload: &[u8]) -> Vec<u8> {
     let mut body = payload.to_vec();
-    let tag = keys.packet.seal_in_place(pn, header, &mut body);
+    let tag = keys.packet.seal_in_place(pn, header, &mut body).unwrap();
     let mut packet = [header, &body, &tag].concat();
     let pn_offset = header.len() - pn_len;
     let sample: [u8; 16] = packet[pn_offset + 4..pn_offset + 20].try_into().unwrap();
@@ -171,6 +171,17 @@ fn tampered_initial_is_rejected() {
 }
 
 #[test]
+fn zeroed_initial_tag_is_rejected() {
+    let keys = client();
+    let mut packet = data("rfc9001_a2_client_initial_protected.hex");
+    assert!(unprotect(&keys, &packet, 18, 2).is_some());
+
+    let tag_start = packet.len() - TAG_LEN;
+    packet[tag_start..].fill(0);
+    assert!(unprotect(&keys, &packet, 18, 2).is_none());
+}
+
+#[test]
 fn a4_retry_integrity_tag() {
     // RFC 9001 section 5.8: AEAD_AES_128_GCM over the Retry pseudo-packet.
     let key: [u8; 16] = unhex("be0c690b9f66575a1d766b54e368c84e")
@@ -181,7 +192,8 @@ fn a4_retry_integrity_tag() {
     let (body, tag) = retry.split_at(retry.len() - 16);
     let pseudo = [&[8u8][..], &unhex(DCID), body].concat();
     let retry_key = PacketKey::new(&key, &nonce);
-    assert_eq!(retry_key.seal_in_place(0, &pseudo, &mut []).to_vec(), tag);
+    let sealed_tag = retry_key.seal_in_place(0, &pseudo, &mut []).unwrap();
+    assert_eq!(sealed_tag.as_slice(), tag);
     assert!(
         retry_key
             .open_in_place(0, &pseudo, &mut [], tag.try_into().unwrap())

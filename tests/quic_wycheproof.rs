@@ -35,7 +35,7 @@ fn wycheproof_aes_128_gcm() {
                     assert_eq!(buffer, msg, "tcId {id} plaintext");
                     let mut sealed = msg.clone();
                     assert_eq!(
-                        packet.seal_in_place(0, &aad, &mut sealed),
+                        packet.seal_in_place(0, &aad, &mut sealed).unwrap(),
                         tag,
                         "tcId {id} tag"
                     );

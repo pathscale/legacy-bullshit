@@ -72,9 +72,11 @@ can derive them. This protection hides nothing secret. From the Handshake
 packets on, the negotiated suite applies, so a ChaCha20-Poly1305-only client
 never touches AES again.
 
-- `PacketKey::new(key, iv)`, `seal_in_place(pn, header, payload) -> tag`,
-  `open_in_place(pn, header, payload, tag)`. The nonce is the IV XOR the
-  packet number (section 5.3).
+- `PacketKey::new(key, iv)` creates a packet key.
+  `seal_in_place(pn, header, payload)` returns `Result<[u8; 16], SealError>`.
+  Send the packet only if sealing succeeds.
+  `open_in_place(pn, header, payload, tag)` verifies and decrypts the payload.
+  Both use the IV XOR the packet number as the nonce (section 5.3).
 - `HeaderKey::new(hp).mask(sample)`: the first five bytes of
   AES-ECB(hp, sample) (section 5.4.3).
 
