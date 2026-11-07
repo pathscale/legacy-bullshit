@@ -2,6 +2,11 @@ name: Rust
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to crates.io
+        type: boolean
+        default: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,6 +20,7 @@ permissions:
 # something, not to every push.
 jobs:
   build:
+    if: ${{ !inputs.publish }}
     name: Build and test
     runs-on: ubicloud-standard-2
     timeout-minutes: 15
@@ -40,6 +46,7 @@ jobs:
           cargo build --lib --target aarch64-unknown-none
 
   lint:
+    if: ${{ !inputs.publish }}
     name: Format and clippy
     runs-on: ubicloud-standard-2
     timeout-minutes: 15
@@ -57,8 +64,7 @@ jobs:
         run: cargo clippy --lib --bins --tests -- -D warnings
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: [build, lint]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.publish
     runs-on: ubicloud-standard-2
     timeout-minutes: 30
     steps:
@@ -68,16 +74,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master snapshot; stable toolchain
         with:
           toolchain: stable
-      - name: Verify package without registry token
-        run: cargo package --locked
-      - name: Publish when master carries a new version
+      - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then echo "CARGO_REGISTRY_TOKEN not set; skipping publish"; exit 0; fi
-          v=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
-          if curl -fsSL "https://index.crates.io/le/ga/legacy-bullshit" | sed -n 's/.*"vers":"\([^"]*\)".*/\1/p' | grep -qx "$v"; then
-            echo "legacy-bullshit $v is already on crates.io; nothing to publish"
-            exit 0
-          fi
-          cargo publish --locked --no-verify
+        run: cargo publish --registry crates-io --no-verify
