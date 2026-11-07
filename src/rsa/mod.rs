@@ -47,7 +47,7 @@ impl fmt::Display for Error {
             Self::Der => "invalid DER",
             Self::Key => "unsupported RSA key",
             Self::DigestLength => "incorrect digest length",
-            Self::Verification => "invalid RSA-PSS signature",
+            Self::Verification => "invalid RSA signature",
         })
     }
 }
