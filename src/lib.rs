@@ -12,14 +12,22 @@
 //!   suite.
 //! - `tls13` (feature `tls13-aes128-gcm`): authenticated TLS 1.3 records
 //!   using the mandatory-to-implement AES-128-GCM suite.
+//!   Feature `rustls-tls13-aes128-gcm` adds the rustls adapter, which uses `alloc`.
+//! - `webhook_v1` (feature `webhook-v1`): authenticated reads of existing
+//!   v1 webhook secret records.
 //!
 //! There is no general cipher API here, on purpose.
 #![no_std]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+#[cfg(feature = "rustls-tls13-aes128-gcm")]
+extern crate alloc;
+
 #[cfg(feature = "quic-initial")]
 pub mod quic_initial;
 pub mod rsa;
 #[cfg(feature = "tls13-aes128-gcm")]
 pub mod tls13;
+#[cfg(feature = "webhook-v1")]
+pub mod webhook_v1;

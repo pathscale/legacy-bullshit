@@ -39,11 +39,11 @@ jobs:
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose --all-features
-      # The crate is `no_std` with no alloc; prove it on a bare-metal target.
-      - name: Build for a no_std target
+      # The record APIs do not require alloc. The rustls adapter does.
+      - name: Build the record APIs for a bare-metal target
         run: |
           rustup target add aarch64-unknown-none
-          cargo build --lib --all-features --target aarch64-unknown-none
+          cargo build --lib --features quic-initial,tls13-aes128-gcm,webhook-v1 --target aarch64-unknown-none
 
   lint:
     if: ${{ !inputs.publish }}

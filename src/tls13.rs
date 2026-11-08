@@ -4,6 +4,11 @@ use aes_gcm::aead::{AeadInOut, KeyInit};
 use aes_gcm::{Aes128Gcm, Nonce, Tag};
 use core::fmt;
 
+#[cfg(feature = "rustls-tls13-aes128-gcm")]
+mod rustls_adapter;
+#[cfg(feature = "rustls-tls13-aes128-gcm")]
+pub use rustls_adapter::rustls_suite_from_chacha20;
+
 /// Length of the authentication tag appended to a TLS ciphertext.
 pub const TAG_LEN: usize = 16;
 const MAX_CIPHERTEXT_LEN: usize = (1 << 14) + 256;

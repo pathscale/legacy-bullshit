@@ -1,10 +1,10 @@
 [package]
 name = "legacy-bullshit"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
-description = "Verify-only RSA and opt-in AES-128 for QUIC Initial packets and TLS 1.3 records. no_std, no alloc, no unsafe"
+description = "Verify-only RSA and opt-in AES compatibility for QUIC Initial, TLS 1.3 and v1 webhook records. no_std, no unsafe"
 repository = "https://github.com/pathscale/legacy-bullshit"
 readme = "README.md"
 keywords = ["rsa", "tls", "quic", "aes-gcm", "no-std"]
@@ -15,6 +15,8 @@ exclude = ["tests/data", "fuzz"]
 default = []
 quic-initial = ["dep:aes", "dep:aes-gcm"]
 tls13-aes128-gcm = ["dep:aes-gcm", "aes-gcm/zeroize"]
+rustls-tls13-aes128-gcm = ["tls13-aes128-gcm", "dep:rustls"]
+webhook-v1 = ["dep:aes-gcm", "aes-gcm/zeroize"]
 
 [dependencies]
 # Hashing only. Default features off: no std, no alloc.
@@ -22,6 +24,7 @@ sha2 = { version = "^0.11", default-features = false }
 # AES block access is only used for QUIC Initial header protection.
 aes = { version = "^0.9", default-features = false, optional = true }
 aes-gcm = { version = "^0.11", default-features = false, features = ["aes"], optional = true }
+rustls = { version = "^0.23", default-features = false, optional = true }
 
 [dev-dependencies]
 # Reads the vendored Wycheproof JSON. Test-only.
