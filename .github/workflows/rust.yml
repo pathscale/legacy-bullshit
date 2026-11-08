@@ -38,12 +38,12 @@ jobs:
       - name: Build
         run: cargo build --verbose
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose --all-features
       # The crate is `no_std` with no alloc; prove it on a bare-metal target.
       - name: Build for a no_std target
         run: |
           rustup target add aarch64-unknown-none
-          cargo build --lib --target aarch64-unknown-none
+          cargo build --lib --all-features --target aarch64-unknown-none
 
   lint:
     if: ${{ !inputs.publish }}
@@ -61,7 +61,7 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy (deny warnings)
-        run: cargo clippy --lib --bins --tests -- -D warnings
+        run: cargo clippy --lib --bins --tests --all-features -- -D warnings
 
   publish:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.publish
