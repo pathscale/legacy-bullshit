@@ -5,12 +5,14 @@ ECC and ChaCha20-Poly1305, and not one primitive more. Every line here
 exists because an RFC or the deployed web leaves no choice, and keeping it
 in one crate means one grep finds every place the web forces our hand.
 
-Two modules, no general cipher API:
+RSA is available by default. Enable the protocol feature where AES is needed:
 
 - `rsa`: verify-only RSA for TLS 1.3. RSASSA-PSS for CertificateVerify,
   RSASSA-PKCS1-v1_5 for certificate signatures. Formerly `rsa-handshake`.
-- `quic_initial`: AES-128-GCM seal and open plus the AES-128-ECB
-  header-protection mask, for QUIC Initial packets only.
+- `quic-initial` enables `quic_initial`: AES-128-GCM seal and open plus the
+  AES-128-ECB header-protection mask, for QUIC Initial packets only.
+- `tls13-aes128-gcm` enables `tls13`: authenticated record protection for
+  `TLS_AES_128_GCM_SHA256`.
 
 ## rsa
 
@@ -64,6 +66,8 @@ work with. TLS 1.3 forbids PKCS#1 v1.5 for CertificateVerify; use
 
 ## quic_initial
 
+Enable `quic-initial` when using this module.
+
 RFC 9001 section 5.2 protects QUIC Initial packets with AEAD_AES_128_GCM and
 AES-128-ECB header protection no matter what suite the endpoints negotiate,
 and QUIC version 2 (RFC 9369) keeps that. The Initial keys are derived from
@@ -91,13 +95,13 @@ Hand-rolled AES would add risk and buy nothing.
 ## Properties
 
 `#![no_std]`, no `alloc`, `#![forbid(unsafe_code)]` in this crate. Runtime
-dependencies: `sha2`, `aes`, `aes-gcm`, all with default features off. The
-RSA arithmetic is a small fixed-limb Montgomery multiplication over public
+dependencies use default features off. RSA-only builds depend on `sha2`.
+The RSA arithmetic is a small fixed-limb Montgomery multiplication over public
 inputs only, so it is not constant-time and does not need to be.
 
 ## Tests
 
-`cargo test` runs:
+`cargo test --all-features` runs:
 
 - every Wycheproof RSASSA-PKCS1-v1_5 vector for 2048 to 8192-bit keys and
   every vendored Wycheproof RSA-PSS vector, plus negative tests for key
@@ -106,7 +110,8 @@ inputs only, so it is not constant-time and does not need to be.
   Initial packets, and the Retry integrity tag, plus tamper and
   wrong-direction rejection;
 - every Wycheproof AES-GCM vector with a 128-bit key, 96-bit IV and 128-bit
-  tag (the Initial shape), both seal and open, and the FIPS-197 block.
+  tag (the Initial shape), both seal and open, and the FIPS-197 block;
+- the RFC 8448 TLS 1.3 encrypted alert vector, including rejection of tampering.
 
 ## License
 
