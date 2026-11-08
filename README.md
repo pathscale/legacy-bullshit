@@ -1,9 +1,7 @@
 # legacy-bullshit
 
-The legacy cryptography the standards still force on a client that runs
-ECC and ChaCha20-Poly1305, and not one primitive more. Every line here
-exists because an RFC or the deployed web leaves no choice, and keeping it
-in one crate means one grep finds every place the web forces our hand.
+Legacy cryptography required for protocol interoperability and reading
+existing records, with APIs scoped to their formats.
 
 RSA is available by default. Enable the protocol feature where AES is needed:
 
@@ -13,6 +11,13 @@ RSA is available by default. Enable the protocol feature where AES is needed:
   AES-128-ECB header-protection mask, for QUIC Initial packets only.
 - `tls13-aes128-gcm` enables `tls13`: authenticated record protection for
   `TLS_AES_128_GCM_SHA256`.
+- `rustls-tls13-aes128-gcm` adds `tls13::rustls_suite_from_chacha20`. It
+  uses the caller's existing TLS 1.3 ChaCha20-Poly1305/SHA-256 suite for its
+  hash and HKDF. The caller stores the result in a static and appends it to
+  the provider's list where TLS AES compatibility is required.
+- `webhook-v1` enables `webhook_v1::open_in_place`, which authenticates
+  and opens existing AES-256-GCM webhook records. The caller dispatches
+  on the version, decodes the record, and supplies its original AAD.
 
 ## rsa
 
@@ -94,8 +99,9 @@ Hand-rolled AES would add risk and buy nothing.
 
 ## Properties
 
-`#![no_std]`, no `alloc`, `#![forbid(unsafe_code)]` in this crate. Runtime
-dependencies use default features off. RSA-only builds depend on `sha2`.
+`#![no_std]` and `#![forbid(unsafe_code)]` in this crate. Runtime
+dependencies use default features off. Default builds use `sha2` for RSA
+verification. Only the opt-in rustls adapter requires `alloc`.
 The RSA arithmetic is a small fixed-limb Montgomery multiplication over public
 inputs only, so it is not constant-time and does not need to be.
 
