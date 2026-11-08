@@ -1,11 +1,11 @@
 use alloc::boxed::Box;
 
+use rustls::crypto::CipherSuiteCommon;
 use rustls::crypto::cipher::{
     AeadKey, InboundOpaqueMessage, InboundPlainMessage, Iv, MessageDecrypter, MessageEncrypter,
     OutboundOpaqueMessage, OutboundPlainMessage, PrefixedPayload, Tls13AeadAlgorithm,
     UnsupportedOperationError,
 };
-use rustls::crypto::CipherSuiteCommon;
 use rustls::{
     CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion,
     SupportedCipherSuite, Tls13CipherSuite,
@@ -26,7 +26,10 @@ use super::{RecordKey, TAG_LEN};
 pub const fn rustls_suite_from_chacha20(chacha20: SupportedCipherSuite) -> Tls13CipherSuite {
     let chacha20 = match chacha20 {
         SupportedCipherSuite::Tls13(suite)
-            if matches!(suite.common.suite, CipherSuite::TLS13_CHACHA20_POLY1305_SHA256) =>
+            if matches!(
+                suite.common.suite,
+                CipherSuite::TLS13_CHACHA20_POLY1305_SHA256
+            ) =>
         {
             suite
         }
