@@ -1,6 +1,10 @@
 name: Rust
 
 on:
+  push:
+    branches: [master]
+  # No branch filter: a PR stacked on another PR branch still gets checks.
+  pull_request:
   workflow_dispatch:
     inputs:
       publish:
@@ -20,7 +24,6 @@ permissions:
 # something, not to every push.
 jobs:
   build:
-    if: ${{ !inputs.publish }}
     name: Build and test
     runs-on: ubicloud-standard-2
     timeout-minutes: 15
@@ -46,7 +49,6 @@ jobs:
           cargo build --lib --features quic-initial,tls13-aes128-gcm,webhook-v1 --target aarch64-unknown-none
 
   lint:
-    if: ${{ !inputs.publish }}
     name: Format and clippy
     runs-on: ubicloud-standard-2
     timeout-minutes: 15
@@ -64,6 +66,7 @@ jobs:
         run: cargo clippy --lib --bins --tests --all-features -- -D warnings
 
   publish:
+    needs: [build, lint]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.publish
     runs-on: ubicloud-standard-2
     timeout-minutes: 30
@@ -74,7 +77,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master snapshot; stable toolchain
         with:
           toolchain: stable
+      # A rerun, or a dispatch without a version bump, skips instead of failing.
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --registry crates-io --no-verify
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if curl -sf -A "legacy-bullshit-ci (https://github.com/pathscale/legacy-bullshit)" \
+              "https://crates.io/api/v1/crates/legacy-bullshit/${version}" > /dev/null; then
+            echo "::notice::legacy-bullshit ${version} is already on crates.io, skipping publish"
+            exit 0
+          fi
+          cargo publish --registry crates-io --no-verify
