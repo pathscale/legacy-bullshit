@@ -1,10 +1,6 @@
 name: Rust
 
 on:
-  push:
-    branches: [master]
-  # No branch filter: a PR stacked on another PR branch still gets checks.
-  pull_request:
   workflow_dispatch:
     inputs:
       publish:
